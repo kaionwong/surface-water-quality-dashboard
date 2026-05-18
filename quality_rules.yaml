@@ -1,0 +1,326 @@
+# Quality Rules Configuration for Alberta Surface Water Quality Data
+# Defines all validation rules, severity levels, and remediation strategies
+
+version: "1.0"
+dataset: "Alberta Surface Water Quality (2020-2023)"
+last_updated: "2026-05-18"
+validation_framework:
+  total_rules: 12
+  categories: ["structural", "measurement", "temporal", "completeness"]
+  compliance_threshold: 0.95  # Target: 95% of records pass
+
+# =============================================================================
+# STRUCTURAL RULES (Data Relationship Integrity)
+# =============================================================================
+structural_rules:
+  S1_vmv_unit_consistency:
+    name: "VmvCode Unit Consistency"
+    description: "Each Variable-Method-Unit code should use a single, consistent UnitCode across all records"
+    rule_logic:
+      - "Group records by VmvCode"
+      - "Count unique UnitCodes per group"
+      - "Flag if UniqueUnitCount > 1"
+    severity: "ERROR"
+    compliance_rate: 98.18  # Phase 1 finding: 4,490 records violated
+    affected_records: 4490
+    affected_percentage: 1.82
+    known_violations:
+      - vmv_code: 6107
+        units: ["mg/L", "ug/L"]
+        record_count_per_unit: [4474, 16]
+        interpretation: "Likely unit conversion error or analytical method change"
+    remediation:
+      auto_fix: false
+      manual_review_required: true
+      options:
+        - action: "Keep separate"
+          rationale: "Analyze as two distinct measurement streams"
+        - action: "Convert to canonical unit"
+          formula: "ug/L = mg/L × 1000"
+          validation: "Check if converted values fall within expected range"
+        - action: "Flag and exclude"
+          condition: "For trend analysis, exclude ug/L measurements (n=16)"
+    references: ["unit_violations.csv", "unit_conversion_guide.csv"]
+
+  S2_station_location_stability:
+    name: "Station Location Stability"
+    description: "Each StationNumber should map to a single, consistent (Latitude, Longitude) coordinate pair"
+    rule_logic:
+      - "Group records by StationNumber"
+      - "Count unique (Latitude, Longitude) pairs per station"
+      - "Flag if more than 1 unique location"
+    severity: "WARNING"
+    compliance_rate: 100.0  # Phase 1 finding: 0 violations
+    affected_records: 0
+    affected_percentage: 0.0
+    validation_threshold:
+      max_coordinate_distance_km: 0.1  # Allow for GPS error
+    interpretation: "All 174 stations have stable coordinates; no relocations detected"
+    recommendation: "No action required; good data stewardship"
+    references: ["cardinality_report.csv"]
+
+  S3_project_number_presence:
+    name: "Project Number Consistency"
+    description: "All samples should have a ProjectNumber assignment for traceability"
+    rule_logic:
+      - "Check each record for non-null ProjectNumber"
+      - "Flag if ProjectNumber is missing or empty"
+    severity: "WARNING"
+    compliance_rate: 100.0  # Phase 1 finding: 0 violations
+    affected_records: 0
+    affected_percentage: 0.0
+    interpretation: "Complete project assignment; all samples traceable"
+    recommendation: "No action required"
+    references: ["cardinality_report.csv"]
+
+# =============================================================================
+# MEASUREMENT RULES (Value Quality & Detection)
+# =============================================================================
+measurement_rules:
+  M1_flag_qualifier_alignment:
+    name: "Flag-Qualifier Alignment"
+    description: "Suspect measurements (Flag='S') must have corresponding qualifier/notes explaining why"
+    rule_logic:
+      - "Identify records where MeasurementFlag = 'S'"
+      - "Check if MeasurementQualifier is present and non-empty"
+      - "Flag if suspect measurement lacks explanation"
+    severity: "WARNING"
+    compliance_rate: 100.0  # Phase 1 finding: 0 violations
+    affected_records: 0
+    affected_percentage: 0.0
+    interpretation: "All suspect readings carry explanatory qualifiers"
+    recommendation: "Excellent metadata capture; continue current practices"
+    data_usage: "Flag values can be excluded in quality-sensitive analyses"
+    references: ["data_quality_audit.csv"]
+
+  M2_value_range_plausibility:
+    name: "Value Range Plausibility"
+    description: "Measurement values should fall within scientifically plausible bounds per variable"
+    rule_logic:
+      - "Define valid range for each parameter (see ranges below)"
+      - "Check MeasurementValue against range"
+      - "Flag if outside bounds"
+    severity: "WARNING"
+    compliance_rate: 99.76  # Phase 1 finding: 596/247121 violations
+    affected_records: 596
+    affected_percentage: 0.24
+    parameter_ranges:
+      pH:
+        min: 0
+        max: 14
+        unit: "pH units"
+        rationale: "Scientific pH scale"
+      temperature:
+        min: -5
+        max: 50
+        unit: "Celsius"
+        rationale: "Alberta water temperature extremes"
+      dissolved_oxygen:
+        min: 0
+        max: 15
+        unit: "mg/L"
+        rationale: "Oxygen saturation at standard conditions"
+      turbidity:
+        min: 0
+        max: 10000
+        unit: "NTU"
+        rationale: "Extreme flood conditions"
+    remediation:
+      auto_fix: false
+      action: "Flag for manual review; may indicate:"
+        - "Data entry errors (transposed digits)"
+        - "Instrument malfunction"
+        - "Extreme environmental event"
+        - "Unit confusion"
+    references: ["data_quality_audit.csv"]
+
+  M3_measurement_completeness:
+    name: "Measurement Completeness per Sample"
+    description: "Core variables (pH, DO, Temperature) should be present in >70% of samples"
+    rule_logic:
+      - "For each sample, count core variables measured"
+      - "Calculate coverage % = (core measured / core expected) × 100"
+      - "Flag if coverage < 70%"
+    severity: "WARNING"
+    compliance_rate: "Variable by station (173/174 comprehensive)"
+    affected_records: 0
+    affected_percentage: 0.0
+    core_variables: ["pH", "Dissolved Oxygen", "Temperature"]
+    interpretation: "Comprehensive sampling; all stations measure core parameters"
+    recommendation: "Data complete for standard analyses"
+    references: ["station_parameter_summary.csv"]
+
+# =============================================================================
+# TEMPORAL RULES (Sampling Frequency & Consistency)
+# =============================================================================
+temporal_rules:
+  T1_sampling_frequency_consistency:
+    name: "Sampling Frequency Consistency"
+    description: "Within a project-station pair, sampling should follow consistent frequency (e.g., monthly)"
+    rule_logic:
+      - "For each project-station pair, calculate gaps between consecutive samples"
+      - "Flag if gap > 60 days (exceeds expected monthly + buffer)"
+      - "Document gap pattern for interpretation"
+    severity: "WARNING"
+    compliance_rate: 99.87  # Phase 1 finding: 332/247121 violations
+    affected_records: 332
+    affected_percentage: 0.13
+    gap_threshold: 60  # days
+    interpretation: "Primarily summer scheduling (fewer samples in winter); minor gaps documented"
+    remediation:
+      analysis_impact: "Exclude periods >60 days gap from trend analysis"
+      acceptable_for: "Baseline comparisons, snapshot assessments"
+      not_recommended_for: "Time series trend tests (Mann-Kendall)"
+    references: ["temporal_coverage_by_station.csv"]
+
+  T2_time_travel_detection:
+    name: "Time Travel Detection"
+    description: "Sample collection dates must be monotonically increasing within each project"
+    rule_logic:
+      - "Sort records by ProjectNumber, then SampleDateTime"
+      - "Check if any date < previous date"
+      - "Flag if date reversal detected"
+    severity: "ERROR"
+    compliance_rate: 100.0  # Phase 1 finding: 0 violations
+    affected_records: 0
+    affected_percentage: 0.0
+    interpretation: "Perfect temporal ordering; no data entry reversals"
+    recommendation: "Data ready for time-dependent analysis without reordering"
+    references: ["temporal_violations.csv"]
+
+  T3_seasonal_anomalies:
+    name: "Seasonal Anomaly Detection"
+    description: "Values should align with expected seasonal patterns for Alberta aquatic systems"
+    rule_logic:
+      - "Define seasonal norms by variable (e.g., water temp expectations)"
+      - "For each quarter, check if values deviate significantly"
+      - "Flag persistent deviations suggesting unusual conditions"
+    severity: "INFO"
+    compliance_rate: 99.99  # Phase 1 finding: 20/247121 anomalies
+    affected_records: 20
+    affected_percentage: 0.008
+    seasonal_patterns:
+      temperature:
+        Q1: "Cold (typically <10°C)"
+        Q2: "Warming (typically 10-15°C)"
+        Q3: "Warm (typically >15°C)"
+        Q4: "Cooling (typically <10°C)"
+      dissolved_oxygen:
+        Q1: "High (typically >9 mg/L, ice cover)"
+        Q2: "Variable"
+        Q3: "Moderate (typically 7-9 mg/L)"
+        Q4: "Moderate-High"
+    interpretation: "Minimal anomalies; likely environmental events (floods, ice-on/off)"
+    remediation:
+      action: "Document and correlate with environmental events"
+      use_case: "Anomalies useful for surge event analysis"
+    references: ["data_quality_audit.csv"]
+
+# =============================================================================
+# COMPLETENESS RULES (Data Coverage & Representativeness)
+# =============================================================================
+completeness_rules:
+  C1_sample_validity_threshold:
+    name: "Sample Validity Threshold"
+    description: "A sample is valid for multi-variable analysis if ≥50% of expected variables are measured"
+    rule_logic:
+      - "For each sample, count measured variables"
+      - "Calculate coverage % = (measured / expected) × 100"
+      - "Mark invalid if coverage < 50%"
+    severity: "WARNING"
+    compliance_rate: 100.0  # Phase 1 finding: all samples ≥50%
+    affected_records: 0
+    affected_percentage: 0.0
+    interpretation: "All 4,608 samples meet validity threshold"
+    minimum_variables_expected: 12  # Conservative estimate
+    recommendation: "All samples usable for analysis"
+    references: ["data_quality_audit.csv"]
+
+  C2_project_representativeness:
+    name: "Project Representativeness"
+    description: "A station-year requires ≥3 samples to be representative for trend analysis"
+    rule_logic:
+      - "Group records by StationNumber, Year"
+      - "Count unique samples per group"
+      - "Flag if SampleCount < 3"
+    severity: "WARNING"
+    compliance_rate: 99.87  # Phase 1 finding: 3,480 records flagged
+    affected_records: 3480
+    affected_percentage: 1.41
+    minimum_samples: 3
+    interpretation: "Most station-years well-sampled; 1.41% under-represented"
+    remediation:
+      analysis_suitability:
+        "Sufficient for inference": "≥3 samples/year"
+        "Limited for trend": "Only 1-2 samples/year"
+        "Excluded from": "Mann-Kendall tests, annual comparisons"
+      acceptable_for: "Baseline snapshots, exploratory analysis"
+    station_year_distribution:
+      "3+ samples": 1344  # Majority of station-years
+      "1-2 samples": 24   # Under-sampled
+    references: ["quality_summary_by_station.csv"]
+
+# =============================================================================
+# COMPLIANCE THRESHOLDS & ACTION LEVELS
+# =============================================================================
+action_levels:
+  critical:
+    description: "Stops analysis; manual intervention required"
+    rules: ["S1_vmv_unit_consistency"]
+    action: "Resolve before analysis; use remediation path"
+
+  high:
+    description: "Proceed with caution; document impact"
+    rules: ["T2_time_travel_detection", "S3_project_number_presence"]
+    action: "Flag affected records; exclude if needed"
+
+  medium:
+    description: "Document and filter as appropriate"
+    rules: ["S2_station_location_stability", "M2_value_range_plausibility", "T1_sampling_frequency_consistency"]
+    action: "Apply suggested filters per analysis type"
+
+  low:
+    description: "Informational; use for context"
+    rules: ["M1_flag_qualifier_alignment", "M3_measurement_completeness", "T3_seasonal_anomalies", "C2_project_representativeness"]
+    action: "Include in metadata; valuable for interpretation"
+
+# =============================================================================
+# FILTERING RECOMMENDATIONS BY ANALYSIS TYPE
+# =============================================================================
+filtering_guidance:
+  temporal_trends:
+    required_filters:
+      - "Exclude C2 under-sampled station-years (<3 samples/year)"
+      - "Exclude T1 gaps >60 days"
+      - "Handle S1 dual-unit VmvCode separately or convert"
+    optional_filters:
+      - "Include M1 flagged values; add uncertainty band"
+      - "Note T3 seasonal anomalies; mark as outliers"
+    minimum_data_points: 5
+    
+  spatial_comparisons:
+    required_filters:
+      - "None; all stations well-covered"
+    optional_filters:
+      - "Note S1 unit inconsistencies if comparing by unit"
+      - "Flag M2 out-of-range values; mark as questionable"
+    minimum_stations: 2
+
+  quality_assessments:
+    required_filters:
+      - "Include all rules for full compliance picture"
+    outputs: "Compliance scorecard by rule, station, and project"
+
+  snapshot_analysis:
+    required_filters:
+      - "Only C1 sample validity"
+    optional_filters:
+      - "None; all snapshots usable"
+
+---
+
+# IMPLEMENTATION NOTES
+# - All violation counts as of Phase 1 execution (2026-05-18)
+# - Remediation paths are recommendations; final decisions depend on analysis goals
+# - Rules can be customized per analytical context
+# - Threshold values (gap_threshold, minimum_samples) are configurable

@@ -8,7 +8,7 @@
 
 Activate the correct virtual environment first:
 ```bash
-C:\Users\kai.wong\Dev\virtual_env\venv_etl_for_ecol_analytics\Scripts\activate.bat
+C:\Users\kai.wong\Dev\virtual_env\venv_surface_water_quality_dashboard\Scripts\activate.bat
 ```
 
 Then run:
@@ -51,7 +51,7 @@ python -m exploratory quality      # Quality issues detection
 
 ## Virtual Environment
 
-**Location**: `C:\Users\kai.wong\Dev\virtual_env\venv_etl_for_ecol_analytics`
+**Location**: `C:\Users\kai.wong\Dev\virtual_env\venv_surface_water_quality_dashboard`
 **Python**: 3.13.13 (✅ Has all pre-built wheels)
 **Status**: ✅ Ready (pandas, numpy, scipy, plotly, all dependencies installed)
 
@@ -62,7 +62,7 @@ python -m exploratory quality      # Quality issues detection
 
 **Activate manually if needed:**
 ```bash
-C:\Users\kai.wong\Dev\virtual_env\venv_etl_for_ecol_analytics\Scripts\activate.bat
+C:\Users\kai.wong\Dev\virtual_env\venv_surface_water_quality_dashboard\Scripts\activate.bat
 ```
 
 ---

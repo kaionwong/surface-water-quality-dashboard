@@ -1,0 +1,12 @@
+Rule,RecordCount
+M3:SparseCoreCoverage,247121
+S1:VmvCodeUnitInconsistency,4490
+C2:InsufficientRepresentativeness,3480
+M2:OutOfRangeValues,596
+T1:SamplingFrequencyGaps,332
+T3:SeasonalAnomalies,20
+S2:StationLocationVariation,0
+S3:MissingProjectNumber,0
+M1:SuspectFlagNoQualifier,0
+T2:TimeTravel,0
+C1:LowCompleteness,0

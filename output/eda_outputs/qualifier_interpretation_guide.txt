@@ -1,0 +1,26 @@
+MEASUREMENT QUALIFIER INTERPRETATION GUIDE
+================================================================================
+Dataset: 247,121 total measurements
+Analysis Date: 2026-05-18 11:49:19.890038
+================================================================================
+
+Based on the analysis above, here are hypothesized meanings for each code:
+
+
+DR: [UNKNOWN - see details above] (218 occurrences, 0.09%)
+DR|FSE: [UNKNOWN - see details above] (3 occurrences, 0.00%)
+DR|HT: [UNKNOWN - see details above] (2 occurrences, 0.00%)
+DR|SPNF: [UNKNOWN - see details above] (25 occurrences, 0.01%)
+DR|SUS: [UNKNOWN - see details above] (2 occurrences, 0.00%)
+EST: [UNKNOWN - see details above] (14 occurrences, 0.01%)
+FSE: [UNKNOWN - see details above] (2,806 occurrences, 1.14%)
+FSE|HT: [UNKNOWN - see details above] (12 occurrences, 0.00%)
+HT: [UNKNOWN - see details above] (1,318 occurrences, 0.53%)
+HT|RER: [UNKNOWN - see details above] (29 occurrences, 0.01%)
+HT|RER|SUS: [UNKNOWN - see details above] (2 occurrences, 0.00%)
+HT|SUS: [UNKNOWN - see details above] (1 occurrences, 0.00%)
+OBS: [UNKNOWN - see details above] (2,956 occurrences, 1.20%)
+RER: [UNKNOWN - see details above] (10 occurrences, 0.00%)
+RER|SUS: [UNKNOWN - see details above] (72 occurrences, 0.03%)
+SPNF: [UNKNOWN - see details above] (192 occurrences, 0.08%)
+SUS: [UNKNOWN - see details above] (994 occurrences, 0.40%)

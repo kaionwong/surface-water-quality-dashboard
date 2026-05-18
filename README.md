@@ -2,7 +2,7 @@
 
 An interactive Python dashboard for assessing data quality and integrity of incoming surface water quality monitoring data across Alberta. This project enables scientists, data stewards, and field staff to easily review data, identify issues, and make informed decisions about data trustworthiness.
 
-**Quick Start**: See [EDA_GUIDE.md](EDA_GUIDE.md) for exploratory analysis setup and execution instructions.
+**Quick Start**: See [EDA_GUIDE.md](exploratory/EDA_GUIDE.md) for exploratory analysis setup and execution instructions.
 
 ## Assignment Overview
 
