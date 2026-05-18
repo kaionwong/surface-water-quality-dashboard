@@ -1,0 +1,4 @@
+parameter,issue_type,constraint,count,percent
+pH,above_maximum,Max: 14,4853,12.928921568627452
+Temperature,below_minimum,Min: -5,592,6.639004149377594
+Temperature,above_maximum,Max: 40,4,0.0448581361444432

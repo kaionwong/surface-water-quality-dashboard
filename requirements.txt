@@ -13,13 +13,5 @@ altair>=4.2.0
 statsmodels>=0.13.0
 pmdarima>=2.0.0
 
-# Database Connectivity
-pyodbc>=4.0.0
-cx_Oracle>=8.3.0
-oracledb>=1.0.0
-
 # Web Framework
 streamlit>=1.15.0
-
-# Environment Management
-python-dotenv>=0.20.0

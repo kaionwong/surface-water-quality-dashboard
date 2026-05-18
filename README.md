@@ -2,6 +2,8 @@
 
 An interactive Python dashboard for assessing data quality and integrity of incoming surface water quality monitoring data across Alberta. This project enables scientists, data stewards, and field staff to easily review data, identify issues, and make informed decisions about data trustworthiness.
 
+**Quick Start**: See [EDA_GUIDE.md](EDA_GUIDE.md) for exploratory analysis setup and execution instructions.
+
 ## Assignment Overview
 
 ### Objective
@@ -64,7 +66,7 @@ Identifies priority stations for investigation based on concern score incorporat
 ## Prerequisites
 
 - Python 3.8+
-- Virtual Environment (configured at `C:\Users\kai.wong\Dev\virtual_env\venv_surface_water_quality_dashboard`)
+- Virtual Environment: `C:\Users\kai.wong\Dev\virtual_env\venv_etl_for_ecol_analytics` (has all dependencies pre-installed)
 
 ## Setup Instructions
 
@@ -95,6 +97,12 @@ surface-water-quality-dashboard/
 │   │   ├── data_loader.py            # Data ingestion
 │   │   ├── data_cleaner.py           # Validation & cleaning
 │   │   └── data_validator.py         # Completeness, validity checks
+│   ├── exploratory/
+│   │   ├── eda_notebook.py           # Exploratory data analysis workbook
+│   │   ├── missing_data_analysis.py  # Missing data patterns & visualization
+│   │   ├── statistical_tests.py      # Distribution tests, anomaly detection
+│   │   ├── data_profiling.py         # Data shape, types, ranges, distributions
+│   │   └── quality_issues.py         # Identify problematic data qualities
 │   ├── quality_assessment/
 │   │   ├── quality_scorer.py         # Composite quality scoring
 │   │   ├── outlier_detection.py      # Anomaly detection
@@ -108,6 +116,8 @@ surface-water-quality-dashboard/
 │       └── app.py                     # Main Streamlit application
 ├── output/
 │   ├── quality_reports/              # Station quality assessments
+│   ├── eda_outputs/                  # EDA results, missing data heatmaps
+│   ├── statistical_tests/            # Statistical test results
 │   ├── findings_summary.md           # Key findings & recommendations
 │   └── visualizations/               # Exported charts/maps
 └── tests/
@@ -116,24 +126,58 @@ surface-water-quality-dashboard/
     └── test_validation.py
 ```
 
-## Running the Dashboard
+## Running the Exploratory Analysis
 
+### Run Complete EDA Synthesis
 ```bash
-# From project root with venv activated
-streamlit run src/dashboard/app.py
+C:\Users\kai.wong\Dev\virtual_env\venv_etl_for_ecol_analytics\Scripts\python.exe src/exploratory/eda_notebook.py
 ```
 
-The dashboard will start at `http://localhost:8501`
+### Run Individual Analysis Modules
+```bash
+# Data profiling (shape, dtypes, coverage)
+C:\Users\kai.wong\Dev\virtual_env\venv_etl_for_ecol_analytics\Scripts\python.exe -m src.exploratory.data_profiling
+
+# Missing data analysis (heatmaps, gaps)
+C:\Users\kai.wong\Dev\virtual_env\venv_etl_for_ecol_analytics\Scripts\python.exe -m src.exploratory.missing_data_analysis
+
+# Statistical tests (distributions, trends)
+C:\Users\kai.wong\Dev\virtual_env\venv_etl_for_ecol_analytics\Scripts\python.exe -m src.exploratory.statistical_tests
+
+# Quality issues (validity, outliers, consistency)
+C:\Users\kai.wong\Dev\virtual_env\venv_etl_for_ecol_analytics\Scripts\python.exe -m src.exploratory.quality_issues
+```
+
+### Outputs
+- **Location**: `output/eda_outputs/` and `output/statistical_tests/`
+- **Format**: CSV (summaries), HTML (interactive charts), JSON (metadata), Markdown (executive summary)
+- **Key Files**:
+  - `EDA_Executive_Summary.md` — Findings and recommendations (1-2 pages)
+  - `eda_concern_ranking.csv` — Top stations to investigate (feeds quality assessment)
+  - `heatmap_missing_station_parameter.html` — Missing data visualization
+  - `distribution_histogram_*.html` — Parameter distributions
 
 ## Development Workflow
 
-### 1. Data Exploration Phase
-- Load raw water quality data (2020-2023)
-- Identify key variables: Station, SampleDateTime, VariableName, MeasurementValue, etc.
-- Profile dataset completeness and outliers
-- Document data schema and assumptions
+### 1. Data Exploration Phase (Exploratory Analysis)
+**Objective**: Understand data structure, distributions, and identify quality issues early
+- **Data Profiling**: Examine data shape, types, ranges, summary statistics
+- **Missing Data Analysis**: Identify missing value patterns, spatial/temporal gaps
+- **Statistical Testing**: Distribution tests (normality, skewness), trend analysis
+- **Data Quality Issues**: Detect anomalies, outliers, detection limits, method inconsistencies
+- **Visualization**: Create heatmaps of missing data, distribution plots, correlation analysis
+- **Output**: EDA report documenting baseline data quality issues discovered
 
-### 2. ETL & Validation Phase
+**Key Activities**:
+- Load raw dataset and examine structure
+- Profile completeness (nulls, missing values per variable/station)
+- Analyze parameter distributions and ranges
+- Identify stations with minimal/problematic sampling
+- Detect temporal gaps and sampling consistency
+- Flag obvious validity issues (e.g., pH > 14, negative concentrations)
+- Document findings to inform downstream quality assessment
+
+### 2. Data Cleaning & Validation Phase
 - Implement completeness checks (missing fields, null values)
 - Implement validity checks (domain constraints per parameter)
 - Handle censored values and detection limits
