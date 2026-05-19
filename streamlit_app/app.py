@@ -20,10 +20,21 @@ from data.data_processor import (
     apply_quality_filter,
     build_variable_key_mapping,
     compute_time_series_percentiles,
-    get_statistical_summary,
+    get_qualifier_matrix,
     get_station_aggregated_values,
+    get_station_quality_map_data,
+    get_station_quality_stats,
+    get_statistical_summary,
+    get_variable_quality_stats,
 )
-from modules.visualizations import percentile_time_series, quantile_map, threshold_map
+from modules.visualizations import (
+    percentile_time_series,
+    qualifier_heatmap_matrix,
+    quality_ranking_chart,
+    quality_station_map,
+    quantile_map,
+    threshold_map,
+)
 
 
 st.set_page_config(
@@ -142,15 +153,20 @@ if len(df_full) == 0:
     st.warning("No data loaded.")
     st.stop()
 
-main_tab_1, main_tab_2, main_tab_3 = st.tabs(
-    [
-        "Surface water quality analytics and trends",
-        "Data quality analysis for surface water quality data",
-        "Statistical and sensitivity analyses",
-    ]
+_nav_options = [
+    "Surface water quality analytics and trends",
+    "Data quality analysis for surface water quality data",
+]
+_active_page = st.radio(
+    "",
+    _nav_options,
+    horizontal=True,
+    key="main_nav",
+    label_visibility="collapsed",
 )
+st.markdown("---")
 
-with main_tab_1:
+if _active_page == _nav_options[0]:
     st.subheader("Surface water quality analytics and trends")
 
     st.sidebar.header("🔍 Filters")
@@ -650,13 +666,433 @@ with main_tab_1:
         ts_fig = percentile_time_series(ts_summary, selected_variable_label, active_unit)
         st.plotly_chart(ts_fig, width="stretch")
 
-with main_tab_2:
+elif _active_page == _nav_options[1]:
     st.subheader("Data quality analysis for surface water quality data")
-    st.info("Placeholder: additional data quality diagnostics will be added here.")
 
-with main_tab_3:
-    st.subheader("Statistical and sensitivity analyses")
-    st.info("Placeholder: statistical and sensitivity workflows will be added here.")
+    # ── Sidebar controls ───────────────────────────────────────────────────
+    st.sidebar.header("🔎 Filters")
+
+    t2_focus = st.sidebar.radio(
+        "Focus of analysis",
+        ["By variable", "By station"],
+        key="t2_focus",
+    )
+
+    t2_flag_scope = st.sidebar.radio(
+        "Flag type to analyze",
+        ["Unreliable data only", "Unreliable and potentially unreliable data"],
+        key="t2_flag_scope",
+        help=(
+            "Unreliable data only — records with confirmed quality issues: "
+            "SUS, RER|SUS, HT|RER|SUS, HT|SUS, DR|SUS.\n\n"
+            "Unreliable and potentially unreliable data — additionally includes: "
+            "HT, HT|RER, FSE|HT, DR|HT, DR, DR|FSE, DR|SPNF, SPNF."
+        ),
+    )
+    t2_include_potential = t2_flag_scope == "Unreliable and potentially unreliable data"
+
+    st.sidebar.markdown("---")
+    t2_date_preset = st.sidebar.selectbox(
+        "Date range",
+        ["Last year", "Last 5 years", "All data", "Custom"],
+        index=2,
+        key="t2_date_preset",
+    )
+    _t2_min_date = df_full["SampleDateTime"].min().date()
+    _t2_max_date = df_full["SampleDateTime"].max().date()
+    if t2_date_preset == "Custom":
+        t2_start_date = st.sidebar.date_input(
+            "Start date", value=_t2_min_date,
+            min_value=_t2_min_date, max_value=_t2_max_date,
+            key="t2_custom_start",
+        )
+        t2_end_date = st.sidebar.date_input(
+            "End date", value=_t2_max_date,
+            min_value=_t2_min_date, max_value=_t2_max_date,
+            key="t2_custom_end",
+        )
+    else:
+        t2_start_date, t2_end_date = apply_date_preset(df_full, t2_date_preset)
+
+    # ── Apply date filter ─────────────────────────────────────────────────
+    df_t2 = filter_by_date(df_full, t2_start_date, t2_end_date)
+
+    # ── Pre-compute stats ─────────────────────────────────────────────────
+    t2_var_stats_unreliable = get_variable_quality_stats(df_t2, include_potentially_unreliable=False)
+    t2_var_stats_broad = get_variable_quality_stats(df_t2, include_potentially_unreliable=True)
+    t2_var_stats = get_variable_quality_stats(df_t2, include_potentially_unreliable=t2_include_potential)
+    t2_stn_stats = get_station_quality_stats(df_t2, include_potentially_unreliable=t2_include_potential)
+
+    total_records_t2 = len(df_t2)
+    unreliable_count_t2 = int(t2_var_stats_unreliable["flagged_count"].sum())
+    broad_count_t2 = int(t2_var_stats_broad["flagged_count"].sum())
+    potentially_count_t2 = broad_count_t2 - unreliable_count_t2
+    stations_affected_t2 = int((t2_stn_stats["flagged_count"] > 0).sum())
+    variables_affected_t2 = int((t2_var_stats["flagged_count"] > 0).sum())
+
+    scope_label = (
+        "unreliable and potentially unreliable"
+        if t2_include_potential
+        else "unreliable"
+    )
+
+    # ── A. KPI Summary Row ────────────────────────────────────────────────
+    st.markdown(
+        '<h4 style="margin-bottom:4px;color:#1d3557;font-size:16px;">'
+        "Dataset quality overview — all records"
+        "</h4>",
+        unsafe_allow_html=True,
+    )
+
+    kpi_cols = st.columns(5)
+    kpi_data = [
+        (
+            "Unreliable records",
+            f"{unreliable_count_t2:,}",
+            f"{unreliable_count_t2 / total_records_t2 * 100:.2f}% of all records",
+        ),
+        (
+            "Potentially unreliable",
+            f"{potentially_count_t2:,}",
+            f"{potentially_count_t2 / total_records_t2 * 100:.2f}% of all records",
+        ),
+        (
+            "Total flagged (selected scope)",
+            (
+                f"{broad_count_t2:,}"
+                if t2_include_potential
+                else f"{unreliable_count_t2:,}"
+            ),
+            f"{(broad_count_t2 if t2_include_potential else unreliable_count_t2) / total_records_t2 * 100:.2f}% of all records",
+        ),
+        (
+            "Stations with flags",
+            f"{stations_affected_t2}",
+            f"of {len(t2_stn_stats)} total",
+        ),
+        (
+            "Variables with flags",
+            f"{variables_affected_t2}",
+            f"of {t2_var_stats['VmvCode'].nunique()} total",
+        ),
+    ]
+    for col, (label, value, context) in zip(kpi_cols, kpi_data):
+        with col:
+            st.markdown(
+                f'<div style="font-size:12px;">'
+                f'<p style="font-size:14px;color:gray;">{label}</p>'
+                f'<p style="font-size:22px;font-weight:bold;">{value}</p>'
+                f'<p style="font-size:11px;color:#888;">{context}</p>'
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+
+    st.markdown("---")
+
+    # ── B. By Variable mode ───────────────────────────────────────────────
+    if t2_focus == "By variable":
+
+        # B1 – Variable ranking, all stations
+        with st.container():
+            st.markdown(
+                '<h2 style="margin-bottom:0;color:#1d3557;font-weight:700;">'
+                "Variable ranking — all stations"
+                "</h2>",
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                f"Variables ranked by % **{scope_label}** records across all stations."
+            )
+            _var_shown = t2_var_stats[t2_var_stats["flagged_pct"] > 0]
+            _var_hidden = t2_var_stats[t2_var_stats["flagged_pct"] == 0]
+            if _var_shown.empty:
+                st.info("No flagged records found for the selected flag type.")
+            else:
+                fig_var_all = quality_ranking_chart(
+                    _var_shown,
+                    label_col="variable_label",
+                    pct_col="flagged_pct",
+                    title=f"Variable flag rate — all stations ({scope_label})",
+                    color="#E76F51",
+                )
+                st.plotly_chart(fig_var_all, use_container_width=True)
+            if len(_var_hidden) > 0:
+                with st.expander(f"Show {len(_var_hidden)} variable(s) with 0% flag rate"):
+                    st.dataframe(
+                        _var_hidden[["variable_label", "total_records"]].rename(
+                            columns={"variable_label": "Variable", "total_records": "Total records"}
+                        ),
+                        use_container_width=True,
+                    )
+
+        st.markdown("---")
+
+        # B2 – Variable ranking, top-N problematic stations
+        with st.container():
+            st.markdown(
+                '<h2 style="margin-bottom:0;color:#1d3557;font-weight:700;">'
+                "Variable ranking — top N most-flagged stations"
+                "</h2>",
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                "Select how many of the most-flagged stations to include. "
+                "Variables are re-ranked within that subset."
+            )
+
+            b2_max_n = len(t2_stn_stats)
+            top_n_stations = st.slider(
+                "Top N stations by flag rate",
+                min_value=5,
+                max_value=min(50, b2_max_n),
+                value=min(10, b2_max_n),
+                step=5,
+                key="t2_topn_slider",
+            )
+
+            top_n_station_ids = t2_stn_stats.head(top_n_stations)["StationNumber"].tolist()
+            df_topn = df_t2[df_t2["StationNumber"].isin(top_n_station_ids)].copy()
+            t2_var_stats_topn = get_variable_quality_stats(
+                df_topn, include_potentially_unreliable=t2_include_potential
+            )
+
+            _topn_shown = t2_var_stats_topn[t2_var_stats_topn["flagged_pct"] > 0]
+            _topn_hidden = t2_var_stats_topn[t2_var_stats_topn["flagged_pct"] == 0]
+            if _topn_shown.empty:
+                st.info("No flagged records found in the selected top-N stations.")
+            else:
+                fig_var_topn = quality_ranking_chart(
+                    _topn_shown,
+                    label_col="variable_label",
+                    pct_col="flagged_pct",
+                    title=f"Variable flag rate — top {top_n_stations} most-flagged stations ({scope_label})",
+                    color="#F4A261",
+                )
+                st.plotly_chart(fig_var_topn, use_container_width=True)
+                shown = top_n_station_ids[:10]
+                extra = len(top_n_station_ids) - len(shown)
+                st.caption(
+                    "Stations included: "
+                    + ", ".join(str(s) for s in shown)
+                    + (f" … and {extra} more" if extra > 0 else "")
+                )
+            if len(_topn_hidden) > 0:
+                with st.expander(f"Show {len(_topn_hidden)} variable(s) with 0% flag rate"):
+                    st.dataframe(
+                        _topn_hidden[["variable_label", "total_records"]].rename(
+                            columns={"variable_label": "Variable", "total_records": "Total records"}
+                        ),
+                        use_container_width=True,
+                    )
+
+        st.markdown("---")
+
+        # B3 – Qualifier flag distribution by variable
+        with st.container():
+            st.markdown(
+                '<h2 style="margin-bottom:0;color:#1d3557;font-weight:700;">'
+                "Qualifier flag distribution by variable"
+                "</h2>",
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                "How each qualifier code is distributed across variables. "
+                "Only unreliable / potentially unreliable codes are shown."
+            )
+            matrix_var = get_qualifier_matrix(df_t2, group_by="variable")
+            if matrix_var.empty:
+                st.info("No flagged records found.")
+            else:
+                fig_matrix_var = qualifier_heatmap_matrix(
+                    matrix_var,
+                    title="Qualifier code × variable — record count",
+                )
+                st.plotly_chart(fig_matrix_var, use_container_width=True)
+                with st.expander("View as table (download-ready)"):
+                    st.dataframe(matrix_var, use_container_width=True)
+
+    # ── C. By Station mode ────────────────────────────────────────────────
+    else:
+
+        # C1 – Station ranking
+        with st.container():
+            st.markdown(
+                '<h2 style="margin-bottom:0;color:#1d3557;font-weight:700;">'
+                "Station ranking by data quality issues"
+                "</h2>",
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                f"All {len(t2_stn_stats)} stations ranked by % **{scope_label}** "
+                "records (all variables combined)."
+            )
+            _stn_shown = t2_stn_stats[t2_stn_stats["flagged_pct"] > 0]
+            _stn_hidden = t2_stn_stats[t2_stn_stats["flagged_pct"] == 0]
+            if _stn_shown.empty:
+                st.info("No flagged records found for the selected flag type.")
+            else:
+                fig_stn = quality_ranking_chart(
+                    _stn_shown,
+                    label_col="station_label",
+                    pct_col="flagged_pct",
+                    title=f"Station flag rate ({scope_label})",
+                    color="#2E8BC0",
+                )
+                st.plotly_chart(fig_stn, use_container_width=True)
+            if len(_stn_hidden) > 0:
+                with st.expander(f"Show {len(_stn_hidden)} station(s) with 0% flag rate"):
+                    st.dataframe(
+                        _stn_hidden[["station_label", "total_records"]].rename(
+                            columns={"station_label": "Station", "total_records": "Total records"}
+                        ),
+                        use_container_width=True,
+                    )
+
+        st.markdown("---")
+
+        # C2 – Qualifier flag distribution by station
+        with st.container():
+            st.markdown(
+                '<h2 style="margin-bottom:0;color:#1d3557;font-weight:700;">'
+                "Qualifier flag distribution by station"
+                "</h2>",
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                "How each qualifier code is distributed across stations. "
+                "Only unreliable / potentially unreliable codes are shown."
+            )
+            matrix_stn = get_qualifier_matrix(df_t2, group_by="station")
+            if matrix_stn.empty:
+                st.info("No flagged records found.")
+            else:
+                fig_matrix_stn = qualifier_heatmap_matrix(
+                    matrix_stn,
+                    title="Qualifier code × station — record count",
+                )
+                st.plotly_chart(fig_matrix_stn, use_container_width=True)
+                with st.expander("View as table (download-ready)"):
+                    st.dataframe(matrix_stn, use_container_width=True)
+
+    # ── D. GIS Maps (always visible, both modes) ──────────────────────────
+    st.markdown("---")
+    with st.container():
+        st.markdown(
+            '<h2 style="margin-bottom:0;color:#1d3557;font-weight:700;">'
+            "Geospatial distribution of data quality issues"
+            "</h2>",
+            unsafe_allow_html=True,
+        )
+
+        # ── Inline variable + station filters ────────────────────────────
+        _gis_var_key_map = build_variable_key_mapping(df_t2)
+        _gis_all_vmvcodes = sorted(df_t2["VmvCode"].unique().tolist())
+        _gis_label_to_code = {_gis_var_key_map.get(c, str(c)): c for c in _gis_all_vmvcodes}
+        _gis_var_labels = sorted(_gis_label_to_code.keys())
+
+        _gis_stn_ref = (
+            df_t2[["StationNumber", "Station"]]
+            .drop_duplicates("StationNumber")
+            .sort_values("StationNumber")
+        )
+        _gis_stn_options = ["All stations"] + [
+            f"{r['StationNumber']} ({r['Station']})" for _, r in _gis_stn_ref.iterrows()
+        ]
+        _gis_stn_label_to_num = {
+            f"{r['StationNumber']} ({r['Station']})": r["StationNumber"]
+            for _, r in _gis_stn_ref.iterrows()
+        }
+
+        gis_filter_col1, gis_filter_col2, gis_filter_col3 = st.columns([2, 2, 1])
+        with gis_filter_col1:
+            _gis_sel_var = st.selectbox(
+                "Variable",
+                options=["All variables"] + _gis_var_labels,
+                index=0,
+                key="t2_gis_variable",
+            )
+        with gis_filter_col2:
+            _gis_sel_stn = st.selectbox(
+                "Station",
+                options=_gis_stn_options,
+                index=0,
+                key="t2_gis_station",
+            )
+        with gis_filter_col3:
+            t2_map_type = st.radio(
+                "Map type",
+                ["Station points", "Heat map"],
+                horizontal=False,
+                key="t2_map_type",
+            )
+
+        # Resolve filter values
+        _gis_variable_filter = (
+            None if _gis_sel_var == "All variables"
+            else [_gis_label_to_code[_gis_sel_var]]
+        )
+        _gis_station_filter = (
+            None if _gis_sel_stn == "All stations"
+            else [_gis_stn_label_to_num[_gis_sel_stn]]
+        )
+
+        _gis_var_note = _gis_sel_var
+        _gis_stn_note = _gis_sel_stn
+        st.markdown(
+            f"Station-level flag rate — **{scope_label}** flags · "
+            f"**{_gis_var_note}** · **{_gis_stn_note}**"
+        )
+
+        # Apply station filter on top of date-filtered data
+        _df_gis = (
+            df_t2 if _gis_station_filter is None
+            else df_t2[df_t2["StationNumber"].isin(_gis_station_filter)].copy()
+        )
+
+        map_station_data = get_station_quality_map_data(
+            _df_gis,
+            include_potentially_unreliable=t2_include_potential,
+            variable_filter=_gis_variable_filter,
+        )
+
+        t2_map_result = quality_station_map(
+            map_station_data,
+            map_type="heatmap" if t2_map_type == "Heat map" else "points",
+        )
+
+        if t2_map_result is None:
+            st.info("No station data available for the current filter.")
+        else:
+            t2_folium_map, t2_legend_html = t2_map_result
+            stf.folium_static(t2_folium_map, width=1400, height=560)
+            _assumption_note = (
+                "<b>Assumption:</b> Data quality flags are derived from the <code>MeasurementQualifier</code> "
+                "field. Records with no entry in this field, or with qualifier codes not associated with "
+                "quality issues, are assumed to be clean (no data quality concerns flagged)."
+            )
+            if t2_map_type == "Heat map":
+                method_html_t2 = (
+                    "<b>Methodology (Heat map):</b> Each station contributes a point weighted "
+                    "by its % flagged records. A Gaussian kernel heat map visualises spatial "
+                    "clusters of data quality issues. Higher intensity = higher proportion of "
+                    "flagged records in that area.<br><br>"
+                    + _assumption_note
+                )
+            else:
+                method_html_t2 = (
+                    "<b>Methodology (Station points):</b> Each marker represents one monitoring "
+                    "station, coloured by its proportion of flagged records. Hover over a marker "
+                    "for exact counts. Colour scale: 0% (green, no quality issues), "
+                    "&gt;0%–5% (amber), 5–10% (orange), &gt;10% (red).<br><br>"
+                    + _assumption_note
+                )
+            st.markdown(
+                f"<div style='display:flex;gap:16px;align-items:flex-start;'>"
+                f"<div style='flex-shrink:0;'>{t2_legend_html}</div>"
+                f"<div style='flex:1;font-size:14px;padding-top:8px;'>{method_html_t2}</div>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
 
 st.markdown("---")
 st.caption("Dashboard status: Active | Updated: 2026-05-18")

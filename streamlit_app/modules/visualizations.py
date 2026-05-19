@@ -591,3 +591,172 @@ def percentile_time_series(ts_df, variable_label, unit_code):
         height=430,
     )
     return fig
+
+
+# ---------------------------------------------------------------------------
+# Tab 2 — Data Quality Analysis visualizations
+# ---------------------------------------------------------------------------
+
+def quality_ranking_chart(stats_df, label_col, pct_col, title, color='#E76F51'):
+    """
+    Horizontal bar chart ranking variables or stations by % flagged records.
+
+    Args:
+        stats_df (pd.DataFrame): Data with label and percentage columns
+        label_col (str): Column name for y-axis (category label)
+        pct_col (str): Column name for x-axis (% flagged)
+        title (str): Chart title
+        color (str): Bar fill colour (hex)
+
+    Returns:
+        plotly.graph_objects.Figure
+    """
+    if stats_df is None or len(stats_df) == 0:
+        return go.Figure().update_layout(title='No data available', height=300)
+
+    # Sort ascending so highest value appears at top of horizontal bar
+    plot_df = stats_df.sort_values(pct_col, ascending=True).copy()
+
+    fig = go.Figure(go.Bar(
+        x=plot_df[pct_col],
+        y=plot_df[label_col],
+        orientation='h',
+        marker_color=color,
+        customdata=plot_df[['flagged_count', 'total_records']].values,
+        hovertemplate=(
+            '<b>%{y}</b><br>'
+            'Flagged: %{customdata[0]:,} / %{customdata[1]:,}<br>'
+            'Rate: %{x:.2f}%<extra></extra>'
+        ),
+    ))
+
+    fig.update_layout(
+        title=title,
+        xaxis_title='Flagged records (%)',
+        yaxis_title='',
+        height=max(350, 25 * len(plot_df) + 100),
+        margin=dict(l=10, r=20, t=50, b=40),
+        showlegend=False,
+    )
+    return fig
+
+
+def qualifier_heatmap_matrix(matrix_df, title):
+    """
+    Cross-tab heatmap: rows = variable/station labels, columns = qualifier codes.
+
+    Args:
+        matrix_df (pd.DataFrame): pd.crosstab output (rows × qualifier codes)
+        title (str): Chart title
+
+    Returns:
+        plotly.graph_objects.Figure
+    """
+    if matrix_df is None or matrix_df.empty:
+        return go.Figure().update_layout(title='No flagged data available', height=400)
+
+    fig = px.imshow(
+        matrix_df,
+        labels=dict(x='Qualifier Code', y='', color='Record Count'),
+        title=title,
+        color_continuous_scale='Blues',
+        aspect='auto',
+        text_auto=True,
+    )
+    fig.update_layout(
+        height=max(400, 28 * len(matrix_df) + 150),
+        xaxis_title='Qualifier Code',
+        yaxis_title='',
+        coloraxis_colorbar=dict(title='Count'),
+    )
+    fig.update_xaxes(side='bottom')
+    return fig
+
+
+def quality_station_map(station_df, map_type='points'):
+    """
+    Folium map with stations coloured by % flagged records.
+
+    Colour classes:
+        0%      → green  (#22C55E)  — no flagged records
+        >0–5%  → amber  (#FBBF24)
+        5–10%  → orange (#F97316)
+        >10%   → red    (#DC2626)
+
+    Args:
+        station_df (pd.DataFrame): Output of get_station_quality_map_data()
+        map_type (str): 'points' or 'heatmap'
+
+    Returns:
+        (folium.Map, legend_html_str) or None if no data.
+    """
+    if station_df is None or len(station_df) == 0:
+        return None
+
+    work = station_df.dropna(
+        subset=['LatitudeDecimalDegrees', 'LongitudeDecimalDegrees']
+    ).copy()
+    if len(work) == 0:
+        return None
+
+    color_classes = [
+        ('#22C55E', 0,    0,           '0% (no issues)'),
+        ('#FBBF24', 0,    5,           '>0–5%'),
+        ('#F97316', 5,    10,          '5–10%'),
+        ('#DC2626', 10,   float('inf'), '> 10%'),
+    ]
+
+    def _get_color(pct):
+        if pct == 0:
+            return color_classes[0][0]  # green: exactly 0%
+        for clr, lo, hi, _ in color_classes[1:]:
+            if lo < pct <= hi:
+                return clr
+        return color_classes[-1][0]  # > 10%
+
+    center_lat = work['LatitudeDecimalDegrees'].mean()
+    center_lon = work['LongitudeDecimalDegrees'].mean()
+    m = folium.Map(location=[center_lat, center_lon], zoom_start=6)
+
+    if map_type == 'heatmap':
+        # Exclude stations with 0% flag rate from heat map
+        heat_work = work[work['flagged_pct'] > 0].copy()
+        if len(heat_work) == 0:
+            return None
+        heat_work['heat_weight'] = heat_work['flagged_pct'].clip(lower=0.01)
+        heat_points = heat_work[
+            ['LatitudeDecimalDegrees', 'LongitudeDecimalDegrees', 'heat_weight']
+        ].values.tolist()
+        HeatMap(heat_points, radius=18, blur=12, min_opacity=0.3).add_to(m)
+        items = [
+            ("", "Intensity ∝ % flagged records per station"),
+            ("", "(Stations with 0% flag rate are excluded)"),
+        ]
+        legend_html = _build_legend_html("Data quality heat map", items)
+        return m, legend_html
+
+    for _, row in work.iterrows():
+        pct = float(row['flagged_pct'])
+        color = _get_color(pct)
+        popup_text = (
+            f"<b>{row['StationNumber']}</b><br>"
+            f"Station: {row['Station']}<br>"
+            f"Flagged: {int(row['flagged_count']):,} / {int(row['total_records']):,}<br>"
+            f"Flag rate: {pct:.2f}%"
+        )
+        folium.CircleMarker(
+            location=[row['LatitudeDecimalDegrees'], row['LongitudeDecimalDegrees']],
+            radius=7,
+            color=color,
+            fill=True,
+            fillColor=color,
+            fillOpacity=0.85,
+            weight=1,
+            popup=folium.Popup(popup_text, max_width=300),
+        ).add_to(m)
+
+    items = [("", "Colour = % flagged records per station")]
+    for clr, _, _, label in color_classes:
+        items.append((clr, label))
+    legend_html = _build_legend_html("Station flag rate", items)
+    return m, legend_html

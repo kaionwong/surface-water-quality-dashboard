@@ -526,3 +526,158 @@ def get_statistical_summary(df_filtered, df_pre_filter):
         'pct_removed': pct_removed,
         'stations': df_filtered['StationNumber'].nunique() if 'StationNumber' in df_filtered.columns else 0,
     }
+
+
+# ---------------------------------------------------------------------------
+# Tab 2 — Data Quality Analysis helpers
+# ---------------------------------------------------------------------------
+
+def get_quality_flag_labels(df):
+    """
+    Return a copy of df with a 'quality_category' column added.
+    Values: 'Unreliable', 'Potentially Unreliable', 'Clean'.
+    """
+    out = df.copy()
+    qual = out['MeasurementQualifier']
+    conditions = [
+        qual.isin(DEFINITELY_UNRELIABLE_CODES),
+        qual.isin(SOMEWHAT_UNRELIABLE_CODES),
+    ]
+    choices = ['Unreliable', 'Potentially Unreliable']
+    out['quality_category'] = np.select(conditions, choices, default='Clean')
+    return out
+
+
+def get_variable_quality_stats(df, include_potentially_unreliable=False):
+    """
+    Per-variable flagged record stats, sorted by % flagged descending.
+
+    Returns DataFrame with columns:
+        VmvCode, variable_label, total_records, flagged_count, flagged_pct
+    """
+    work = get_quality_flag_labels(df)
+    if include_potentially_unreliable:
+        flagged_mask = work['quality_category'].isin(['Unreliable', 'Potentially Unreliable'])
+    else:
+        flagged_mask = work['quality_category'] == 'Unreliable'
+
+    var_key_map = build_variable_key_mapping(df)
+
+    total = work.groupby('VmvCode').size().rename('total_records')
+    flagged = work[flagged_mask].groupby('VmvCode').size().rename('flagged_count')
+
+    stats = pd.concat([total, flagged], axis=1).fillna(0).reset_index()
+    stats['flagged_count'] = stats['flagged_count'].astype(int)
+    stats['flagged_pct'] = (stats['flagged_count'] / stats['total_records'] * 100).round(3)
+    stats['variable_label'] = stats['VmvCode'].map(var_key_map).fillna(stats['VmvCode'].astype(str))
+
+    return (
+        stats[['VmvCode', 'variable_label', 'total_records', 'flagged_count', 'flagged_pct']]
+        .sort_values('flagged_pct', ascending=False)
+        .reset_index(drop=True)
+    )
+
+
+def get_station_quality_stats(df, include_potentially_unreliable=False):
+    """
+    Per-station flagged record stats, sorted by % flagged descending.
+
+    Returns DataFrame with columns:
+        StationNumber, station_label, total_records, flagged_count, flagged_pct
+    """
+    work = get_quality_flag_labels(df)
+    if include_potentially_unreliable:
+        flagged_mask = work['quality_category'].isin(['Unreliable', 'Potentially Unreliable'])
+    else:
+        flagged_mask = work['quality_category'] == 'Unreliable'
+
+    total = work.groupby('StationNumber').agg(
+        Station=('Station', 'first'),
+        total_records=('MeasurementQualifier', 'size'),
+    )
+    flagged = work[flagged_mask].groupby('StationNumber').size().rename('flagged_count')
+
+    stats = total.join(flagged, how='left').fillna({'flagged_count': 0}).reset_index()
+    stats['flagged_count'] = stats['flagged_count'].astype(int)
+    stats['flagged_pct'] = (stats['flagged_count'] / stats['total_records'] * 100).round(3)
+    stats['station_label'] = (
+        stats['StationNumber'].astype(str) + ' (' + stats['Station'].astype(str) + ')'
+    )
+
+    return (
+        stats[['StationNumber', 'station_label', 'total_records', 'flagged_count', 'flagged_pct']]
+        .sort_values('flagged_pct', ascending=False)
+        .reset_index(drop=True)
+    )
+
+
+def get_qualifier_matrix(df, group_by='variable'):
+    """
+    Cross-tab pivot of flagged qualifier codes.
+
+    group_by: 'variable' → rows are variable labels
+              'station'  → rows are station labels
+
+    Returns pd.DataFrame (empty if no flagged records).
+    """
+    all_flag_codes = DEFINITELY_UNRELIABLE_CODES.union(SOMEWHAT_UNRELIABLE_CODES)
+    flagged = df[df['MeasurementQualifier'].isin(all_flag_codes)].copy()
+
+    if len(flagged) == 0:
+        return pd.DataFrame()
+
+    if group_by == 'variable':
+        var_key_map = build_variable_key_mapping(df)
+        flagged['row_label'] = (
+            flagged['VmvCode'].map(var_key_map).fillna(flagged['VmvCode'].astype(str))
+        )
+    else:
+        flagged['row_label'] = (
+            flagged['StationNumber'].astype(str)
+            + ' ('
+            + flagged['Station'].astype(str)
+            + ')'
+        )
+
+    matrix = pd.crosstab(flagged['row_label'], flagged['MeasurementQualifier'])
+    # Sort columns by total count descending; rows by total flags descending
+    matrix = matrix[matrix.sum().sort_values(ascending=False).index]
+    matrix = matrix.loc[matrix.sum(axis=1).sort_values(ascending=False).index]
+    return matrix
+
+
+def get_station_quality_map_data(df, include_potentially_unreliable=False, variable_filter=None):
+    """
+    Return per-station lat/lon + flagged_pct + flagged_count for quality maps.
+
+    variable_filter: optional list of VmvCode values to restrict analysis.
+    """
+    work = df.copy()
+    if variable_filter:
+        work = work[work['VmvCode'].isin(variable_filter)]
+
+    if len(work) == 0:
+        return pd.DataFrame(columns=[
+            'StationNumber', 'Station',
+            'LatitudeDecimalDegrees', 'LongitudeDecimalDegrees',
+            'flagged_count', 'total_records', 'flagged_pct',
+        ])
+
+    work = get_quality_flag_labels(work)
+    if include_potentially_unreliable:
+        flagged_mask = work['quality_category'].isin(['Unreliable', 'Potentially Unreliable'])
+    else:
+        flagged_mask = work['quality_category'] == 'Unreliable'
+
+    total = work.groupby('StationNumber').agg(
+        Station=('Station', 'first'),
+        LatitudeDecimalDegrees=('LatitudeDecimalDegrees', 'first'),
+        LongitudeDecimalDegrees=('LongitudeDecimalDegrees', 'first'),
+        total_records=('MeasurementQualifier', 'size'),
+    )
+    flagged = work[flagged_mask].groupby('StationNumber').size().rename('flagged_count')
+
+    result = total.join(flagged, how='left').fillna({'flagged_count': 0}).reset_index()
+    result['flagged_count'] = result['flagged_count'].astype(int)
+    result['flagged_pct'] = (result['flagged_count'] / result['total_records'] * 100).round(3)
+    return result
