@@ -2,6 +2,10 @@
 
 Interactive Streamlit dashboard for analyzing 247,121 water quality measurements across 174 Alberta monitoring stations (2020-2023).
 
+## Live App
+
+**Deployed on Streamlit Cloud**: https://surface-water-quality-dashboard-8kkvmcckcfq5rarcsrgxy4.streamlit.app/
+
 ## Quick Start
 
 ### Run the Dashboard
