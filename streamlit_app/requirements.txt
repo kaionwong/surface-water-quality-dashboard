@@ -1,0 +1,10 @@
+streamlit
+pandas
+numpy
+plotly
+folium
+streamlit-folium
+matplotlib
+seaborn
+scikit-learn
+scipy

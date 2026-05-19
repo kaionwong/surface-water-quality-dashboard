@@ -1,8 +1,16 @@
-# Phase 2: Comprehensive Data Documentation & Quality Assessment
+# Data Reference & Analysis Guide
 
-**Date Completed**: May 18, 2026
-**Total Records**: 32,264  
-**Total Variables**: 82  
+**For quick start**: See [README.md](README.md) | **For dashboard**: See [streamlit_app/README.md](streamlit_app/README.md)
+
+### Recent Completion (Phase 1.5): Surface Water Quality Analytics Dashboard Section ✅
+The first section ("Surface water quality analytics and trends") is now fully functional and deployed:
+- Real-time statistical summary metrics with quality filtering
+- Interactive quantile-based visualizations with time-series exploration
+- Binary threshold maps with parametric controls
+- Temporal trend analysis with percentile bands
+- Flexible data quality gates with 3 filtering options
+- Unit integration across all displays
+- See [streamlit_app/README.md](../streamlit_app/README.md) for complete feature documentation
 
 ---
 
@@ -23,96 +31,15 @@ Phase 2 provides comprehensive documentation of the Alberta surface water qualit
 
 ---
 
-## Contents & Files
+## Supporting Files Overview
 
-### Core Documentation
-
-#### 1. **unit_definitions.yaml**
-Comprehensive unit reference for all variables.
-- **Purpose**: Translate coded unit identifiers (VmvCodes) to human-readable units
-- **Coverage**: 91 VmvCodes representing 47 unique units
-- **Key Sections**:
-  - Unit conversions (e.g., mg/L ↔ ug/L)
-  - Decimal precision specifications
-  - Quality flags for dual-unit VmvCodes
-- **Who Should Use**: Analysts interpreting numeric values; data validation scripts
-- **Location**: `unit_definitions.yaml`
-
-#### 2. **station_profiles.yaml**
-Comprehensive station-level metadata and characteristics.
-- **Purpose**: Quick reference for station capabilities and limitations
-- **Coverage**: All 174 stations with tier classification
-- **Key Sections**:
-  - Station tiers (Tier 1 = comprehensive, Tier 2 = moderate)
-  - Geographic and basin distribution
-  - Temporal characteristics and sampling frequency
-  - Parameter coverage matrix
-  - Data quality flags and recommendations
-  - Selection criteria for specific analyses
-- **Example Use Cases**:
-  - "Which stations have 4 years of continuous data?" → See **Tier 1 Comprehensive**
-  - "Which basin has the most stations?" → See **Basin Distribution** (Peace River = 48)
-  - "Can I do trend analysis on Station X?" → Check **Tier assignment** + **Sampling frequency**
-- **Location**: `station_profiles.yaml`
-
-#### 3. **variable_catalog.yaml**
-Detailed reference for all 82 measured parameters.
-- **Purpose**: Understand what each variable measures, when it was measured, and how to interpret it
-- **Coverage**: 82 variables across all measurement categories
-- **Key Sections**:
-  - Parameter definitions with units and methods
-  - Measurement frequency across stations
-  - Expected value ranges and outlier detection thresholds
-  - Aggregation methods (mean, median, sum) for temporal rollups
-  - Detection limit documentation (where available)
-  - Data quality recommendations per parameter
-- **Example Use Cases**:
-  - "What does 'Phosphorus Total' measure?" → Find in **Nutrient Cycling** section
-  - "What's a reasonable exceedance threshold for Turbidity?" → See **Water Clarity** guidance
-  - "How should I aggregate pH for monthly reporting?" → Follow **Aggregation Methods**
-- **Location**: `variable_catalog.yaml`
-
-#### 4. **data_documentation.md**
-Reference guide to Alberta's Water Quality Data Portal (WQDP) and data sources.
-- **Purpose**: Understand the origin, structure, and official documentation of the dataset
-- **Coverage**: EPA data collection standards, portal features, reporting tools, data availability
-- **Key Sections**:
-  - Data source and collection methods (EPA standards)
-  - WQDP portal features and data access tools
-  - Classification levels and quality guidelines
-  - Measurement qualifier codes reference (partially documented)
-  - Contact information for data support
-- **Who Should Use**: Anyone working with the raw data; quality assurance specialists
-- **Location**: `data_documentation.md`
-
-#### 5. **data_quality_analysis.md**
-Comprehensive analysis and interpretation of data quality flags and variables.
-- **Purpose**: Understand what each MeasurementQualifier code means and how to handle flagged data
-- **Coverage**: All 17 unique qualifier codes with 1:1 mapping to descriptions (247,121 measurements)
-- **Key Sections**:
-  - Complete code-description mapping for all qualifiers
-  - Data quality variables ranked by priority (MeasurementQualifier, SampleComment, MeasurementComment, etc.)
-  - Parameter-specific guidance (when to exclude HT flags, how to interpret DR flags)
-  - Three filtering scenarios (high/medium/exploratory quality)
-  - Implementation code examples for Python/Dashboard
-- **Who Should Use**: Data analysts deciding how to filter quality flags; dashboard developers
-- **Location**: `data_quality_analysis.md`
-
-#### 6. **unit_of_analysis.md**
-Analytical framework defining data granularity levels and cardinality relationships.
-- **Purpose**: Understand the hierarchical structure of the dataset and valid analytical units
-- **Coverage**: Data relationships (ProjectNumber → SampleNumber → Variables), cardinality assumptions, aggregation levels
-- **Key Sections**:
-  - 12 cardinality assumptions and validation rules
-  - 8 valid "units of analysis" (Station Snapshot, Parameter Comparison, Time Series, etc.)
-  - Data structure validation scripts
-  - Open questions about analytical design
-  - Advanced analysis opportunities
-- **Who Should Use**: Data architects; analysts designing complex queries; data validation specialists
-- **Location**: `unit_of_analysis.md`
-
-#### 7. **README_PHASE_2.md** (This File)
-Overview of Phase 2 outputs and how to use them, with references to all supporting documentation.
+See root directory for:
+- **station_profiles.yaml** — Station metadata, tier assignments, sampling frequency, parameter coverage
+- **variable_catalog.yaml** — Parameter definitions, units, aggregation methods, expected ranges
+- **unit_definitions.yaml** — Unit conversions and VmvCode reference
+- **data_documentation.md** — EPA standards, WQDP portal features, data source information
+- **data_quality_analysis.md** — MeasurementQualifier codes, filtering strategies, parameter-specific guidance
+- **unit_of_analysis.md** — Data structure, cardinality relationships, analytical framework
 
 ---
 

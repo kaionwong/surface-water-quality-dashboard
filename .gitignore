@@ -81,6 +81,3 @@ config.local.json
 # Temporary directory
 /temp
 /temp_repo
-
-# Data files
-alberta_surface_water_quality_data.csv

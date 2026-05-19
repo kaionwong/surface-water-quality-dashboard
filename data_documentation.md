@@ -325,3 +325,25 @@ To navigate back to main page from trophic graph and sub-reports, use the **blue
 
 ---
 
+## Data Analysis Findings
+
+### VariableName ↔ UnitCode Cardinality
+
+**Analysis date:** May 18, 2026  
+**Script:** `check_variablename_unitcode.py`  
+**Source:** `data/raw/alberta_surface_water_quality_data.csv` (247,121 rows)
+
+After dropping 22,532 rows with null `VariableName` or `UnitCode`, **77 distinct VariableNames** were examined for their mapping to `UnitCode`.
+
+**Result:** 74 of 77 VariableNames map to exactly one UnitCode. The remaining 3 map to multiple UnitCodes:
+
+| VariableName | UnitCodes |
+|---|---|
+| CARBON DISSOLVED ORGANIC (DOC) | `mg/L`, `ug/L` |
+| FLUORESCENT DISSOLVED ORGANIC MATTER-FDOM (FIELD) | `RFU`, `ppb QSU` |
+| SAMPLING DISTANCE FROM LEFT BANK | `%`, `m` |
+
+**Implication:** `VariableName` alone is **not** a reliable key for determining the unit of measure. Use `VmvCode` (which encodes variable + method + unit) or inspect `UnitCode` per-row when working with these three variables. This is consistent with the VMV code design described in the [Valid Method Variables (VMV)](#valid-method-variables-vmv) section above.
+
+---
+

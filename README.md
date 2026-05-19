@@ -1,319 +1,215 @@
-# Surface Water Quality Dashboard
+# Alberta Surface Water Quality Dashboard
 
-An interactive Python dashboard for assessing data quality and integrity of incoming surface water quality monitoring data across Alberta. This project enables scientists, data stewards, and field staff to easily review data, identify issues, and make informed decisions about data trustworthiness.
+Interactive Streamlit dashboard with exploratory data analysis for 247,121 water quality measurements (2020-2023) across 174 Alberta monitoring stations.
 
-**Quick Start**: See [EDA_GUIDE.md](exploratory/EDA_GUIDE.md) for exploratory analysis setup and execution instructions.
+**Status**: Phase 1.5 Complete ✅ — Surface water quality analytics section fully functional and deployed.
 
-## Assignment Overview
+## Quick Start
 
-### Objective
-Develop an interactive dashboard to assess and visualize 3 years (2020-2023) of water quality data from monitoring stations across Alberta with unknown data quality, enabling stakeholders to identify data issues and assess station reliability.
-
-### Core Components
-
-#### 1. Data Visualization & Exploration
-- **Interactive filtering**: Date ranges, regions of interest, water quality parameters
-- **Guideline reference limits**: Built-in exceedance visualization plus custom limit capabilities
-- **Time series analysis**: Temporal trends and patterns for selected stations/parameters
-- **Multi-parameter support**: Simultaneous analysis of multiple water quality variables
-
-#### 2. Data Quality Assessment & Trend Analysis
-Comprehensive data quality scoring across 10 dimensions:
-
-- **Completeness**: Missing values, incomplete records, unusable rows (target: <5% missing)
-- **Validity**: Chemical plausibility (pH 0-14, temperature ranges, non-negative concentrations)
-- **Detection Limit Quality**: Censoring patterns and method detection limit consistency
-- **Temporal Consistency**: Unrealistic jumps, sampling frequency regularity
-- **Consistency (Units/Methods)**: Unit code and method code consistency across records
-- **Outlier Detection**: Z-score, IQR-based, and rolling window anomaly detection
-- **QA/QC Flags**: Analysis of flagged results and lab reliability patterns
-- **Spatial Consistency**: Duplicate coordinates, basin mismatches, geographic clustering
-- **Sampling Coverage**: Temporal coverage, gaps in data, sampling frequency
-- **Parameter Coverage**: Parameter availability per station
-
-**Composite Data Quality Score**:
-```
-Quality Score = 100 - sum(weighted penalties)
-- Completeness: 25%
-- Validity: 20%
-- Outliers: 20%
-- QA/QC Flags: 15%
-- Temporal Consistency: 10%
-- Method Stability: 10%
-
-Classification:
-🟢 Good (80-100)
-🟡 Moderate (50-79)
-🔴 Poor (<50)
-```
-
-**Top Stations of Concern Ranking**:
-Identifies priority stations for investigation based on concern score incorporating missing data rate, outlier frequency, QC flags, and temporal irregularities.
-
-#### 3. Spatial Risk Map
-- **Station markers** with color-coded data quality assessment
-- **Interactive tooltips**: Quality score breakdown, parameter counts, recent issues
-- **Basin/Region filtering**: Geographic context for trend analysis
-- **Risk visualization**: Spatial patterns of data quality across Alberta
-
-### Optional Enhancements
-- Data quality trend over time (yearly evolution)
-- Lab/Method performance comparison
-- Parameter-specific quality scorecards
-- Seasonal decomposition analysis
-- Statistical anomaly detection (Isolation Forest, Local Outlier Factor)
-
-## Prerequisites
-
-- Python 3.8+
-- Virtual Environment: `C:\Users\kai.wong\Dev\virtual_env\venv_etl_for_ecol_analytics` (has all dependencies pre-installed)
-
-## Setup Instructions
-
-### 1. Activate the Virtual Environment
-
+### Run the Dashboard
 ```bash
-C:\Users\kai.wong\Dev\virtual_env\venv_surface_water_quality_dashboard\Scripts\activate
-```
-
-### 2. Install Dependencies
-
-```bash
+cd streamlit_app
 pip install -r requirements.txt
+streamlit run app.py
 ```
+See [streamlit_app/QUICKSTART.md](streamlit_app/QUICKSTART.md) for detailed setup. Full dashboard docs: [streamlit_app/README.md](streamlit_app/README.md).
+
+### Run Exploratory Analysis
+```bash
+# From project root with Python 3.12+
+python exploratory/data_profiling.py
+python exploratory/missing_data_analysis.py
+python exploratory/quality_issues.py
+```
+
+## Project Overview
+
+### Dataset
+- **Records**: 247,121 measurements
+- **Stations**: 174 monitoring locations
+- **Parameters**: 91 water quality variables
+- **Period**: January 6, 2020 – December 19, 2023 (4 years)
+- **Basins**: 8 major river basins across Alberta
+- **Quality**: 96.5% clean (no flags) | 3.5% flagged records
+
+### What's Included
+
+#### 1. Interactive Dashboard (Streamlit) ✅
+**Page 1: Surface Water Quality Analytics & Trends** (Completed)
+- Real-time statistical summaries (Count, Mean, Median, Std dev, Min, Max, % removed by filters)
+- Quantile-based station visualizations with time-series exploration
+- Binary threshold maps with interactive slider controls
+- Temporal trend analysis with percentile bands
+- Multi-level data quality filtering (3 options)
+- Unit integration across all displays
+
+**Pages 2-5**: Data Quality Analysis, Unit of Analysis, Geospatial Analysis, Advanced Analytics (In Development)
+
+#### 2. Exploratory Data Analysis (Python)
+Standalone modules in `exploratory/`:
+- **data_profiling.py**: Shape, types, ranges, summary statistics
+- **missing_data_analysis.py**: Missing value patterns, temporal/spatial gaps
+- **quality_issues.py**: Anomalies, validity issues, outlier detection
+- **statistical_tests.py**: Distribution analysis, trend testing
+- **temporal_analysis.py**: Seasonality, autocorrelation, time-series patterns
+
+#### 3. Data Documentation
+Configuration files explaining the dataset:
+- **unit_definitions.yaml**: Unit mappings and conversions for all 91 VmvCodes
+- **station_profiles.yaml**: Metadata for all 174 stations (tiers, coverage, basin)
+- **variable_catalog.yaml**: Parameter definitions, aggregation methods, expected ranges
+
+Reference guides:
+- **data_quality_analysis.md**: All 17 qualifier codes + filtering recommendations
+- **data_documentation.md**: Data source, collection methods, portal info
+- **unit_of_analysis.md**: Data relationships and cardinality assumptions
 
 ## Project Structure
 
 ```
 surface-water-quality-dashboard/
-├── README.md
-├── .gitignore
-├── requirements.txt
-├── data/
-│   ├── raw/                           # Raw input data (2020-2023)
-│   └── processed/                     # Cleaned/validated data
-├── src/
-│   ├── etl/
-│   │   ├── data_loader.py            # Data ingestion
-│   │   ├── data_cleaner.py           # Validation & cleaning
-│   │   └── data_validator.py         # Completeness, validity checks
-│   ├── exploratory/
-│   │   ├── eda_notebook.py           # Exploratory data analysis workbook
-│   │   ├── missing_data_analysis.py  # Missing data patterns & visualization
-│   │   ├── statistical_tests.py      # Distribution tests, anomaly detection
-│   │   ├── data_profiling.py         # Data shape, types, ranges, distributions
-│   │   └── quality_issues.py         # Identify problematic data qualities
-│   ├── quality_assessment/
-│   │   ├── quality_scorer.py         # Composite quality scoring
-│   │   ├── outlier_detection.py      # Anomaly detection
-│   │   ├── consistency_checks.py     # Temporal, unit, method consistency
-│   │   └── concern_ranking.py        # Top stations identification
-│   ├── visualization/
-│   │   ├── exploratory_plots.py      # Time series, distributions
-│   │   ├── spatial_map.py            # Geographic visualization
-│   │   └── quality_dashboard.py      # Quality assessment charts
-│   └── dashboard/
-│       └── app.py                     # Main Streamlit application
-├── output/
-│   ├── quality_reports/              # Station quality assessments
-│   ├── eda_outputs/                  # EDA results, missing data heatmaps
-│   ├── statistical_tests/            # Statistical test results
-│   ├── findings_summary.md           # Key findings & recommendations
-│   └── visualizations/               # Exported charts/maps
-└── tests/
-    ├── test_data_loader.py
-    ├── test_quality_scorer.py
-    └── test_validation.py
+├── README.md                          # This file
+├── requirements.txt                   # Python dependencies
+├── streamlit_app/                     # Dashboard (Phase 1.5 ✅)
+│   ├── app.py                         # Main Streamlit application
+│   ├── README.md                      # Dashboard documentation
+│   ├── QUICKSTART.md                  # Quick start guide
+│   ├── modules/
+│   │   ├── visualizations.py          # Folium & Plotly builders
+│   │   └── filters.py                 # Sidebar controls
+│   └── data/
+│       ├── data_loader.py             # CSV loading & caching
+│       └── data_processor.py           # Filtering, aggregation, quality classification
+├── exploratory/                       # EDA modules (Python scripts)
+│   ├── data_profiling.py
+│   ├── missing_data_analysis.py
+│   ├── quality_issues.py
+│   ├── statistical_tests.py
+│   └── temporal_analysis.py
+├── notebooks/                         # Jupyter analysis notebooks
+├── data/                              # Data directory
+│   └── raw/                           # CSV files (Version A/B/C)
+├── output/                            # Analysis outputs
+│   ├── eda_outputs/                   # EDA results & visualizations
+│   └── statistical_tests/             # Statistical analysis results
+├── unit_definitions.yaml              # Unit reference & conversions
+├── station_profiles.yaml              # Station metadata & tiers
+├── variable_catalog.yaml              # Parameter definitions
+├── data_quality_analysis.md           # Qualifier code mappings & filtering
+├── data_documentation.md              # Data source & collection info
+├── unit_of_analysis.md                # Data structure & cardinality
+└── README_PHASE_2.md                  # Detailed reference tables & guidance
 ```
 
-## Running the Exploratory Analysis
+## Key Statistics
 
-### Run Complete EDA Synthesis
+| Metric | Value | Interpretation |
+|--------|-------|-----------------|
+| **Data Completeness** | 98.18% | Only ~600 rule violations across 247K records |
+| **Tier 1 Stations** | 173 (99.4%) | Comprehensive 12+ variable coverage |
+| **Monthly+ Frequency** | 165 stations (94.8%) | Regular, consistent sampling |
+| **Basin Coverage** | 8 basins | 15-48 stations per basin |
+| **Parameter Coverage** | Median 64/91 | Most stations measure majority of variables |
+| **Clean Data (No Flags)** | 238K (96.5%) | Excellent baseline quality |
+| **Flagged Records** | 8,656 (3.5%) | 17 unique qualifier codes documented |
+
+## How to Use Documentation
+
+### I want to analyze water quality trends at a specific station
+1. Check station viability & metadata: `station_profiles.yaml`
+2. Understand the parameters: `variable_catalog.yaml`
+3. Verify units & conversions: `unit_definitions.yaml`
+4. Review data quality guidelines: `data_quality_analysis.md`
+
+### I want to compare multiple stations
+1. Select comparable stations (same basin, similar frequency): `station_profiles.yaml`
+2. Standardize measurements (same units): `unit_definitions.yaml`
+3. Review parameter definitions: `variable_catalog.yaml`
+
+### I need to filter or handle flagged data
+1. Understand the 17 qualifier codes: `data_quality_analysis.md`
+2. Choose filtering strategy (high-quality, exploratory, all-data)
+3. Apply parameter-specific rules as needed
+
+### I want to understand data structure
+1. Review data relationships & cardinality: `unit_of_analysis.md`
+2. Check station/basin distribution: `station_profiles.yaml`
+3. See full reference tables: `README_PHASE_2.md`
+
+## Technologies
+
+- **Dashboard**: Streamlit, Folium (maps), Plotly (charts)
+- **Data**: Pandas, NumPy, SciPy
+- **EDA**: Matplotlib, Seaborn, StatsModels
+- **Caching**: Streamlit's built-in caching for performance
+
+## Setup & Installation
+
+### Prerequisites
+- Python 3.12+
+- Git
+
+### Installation
 ```bash
-C:\Users\kai.wong\Dev\virtual_env\venv_etl_for_ecol_analytics\Scripts\python.exe src/exploratory/eda_notebook.py
+# Clone/navigate to project root
+cd surface-water-quality-dashboard
+
+# Create virtual environment (optional but recommended)
+python -m venv venv
+source venv/Scripts/activate  # Windows
+# or: source venv/bin/activate  # macOS/Linux
+
+# Install dependencies
+pip install -r requirements.txt
 ```
 
-### Run Individual Analysis Modules
+### Run Dashboard
 ```bash
-# Data profiling (shape, dtypes, coverage)
-C:\Users\kai.wong\Dev\virtual_env\venv_etl_for_ecol_analytics\Scripts\python.exe -m src.exploratory.data_profiling
-
-# Missing data analysis (heatmaps, gaps)
-C:\Users\kai.wong\Dev\virtual_env\venv_etl_for_ecol_analytics\Scripts\python.exe -m src.exploratory.missing_data_analysis
-
-# Statistical tests (distributions, trends)
-C:\Users\kai.wong\Dev\virtual_env\venv_etl_for_ecol_analytics\Scripts\python.exe -m src.exploratory.statistical_tests
-
-# Quality issues (validity, outliers, consistency)
-C:\Users\kai.wong\Dev\virtual_env\venv_etl_for_ecol_analytics\Scripts\python.exe -m src.exploratory.quality_issues
+cd streamlit_app
+streamlit run app.py
 ```
+Open browser to `http://localhost:8501` (or use default port)
 
-### Outputs
-- **Location**: `output/eda_outputs/` and `output/statistical_tests/`
-- **Format**: CSV (summaries), HTML (interactive charts), JSON (metadata), Markdown (executive summary)
-- **Key Files**:
-  - `EDA_Executive_Summary.md` — Findings and recommendations (1-2 pages)
-  - `eda_concern_ranking.csv` — Top stations to investigate (feeds quality assessment)
-  - `heatmap_missing_station_parameter.html` — Missing data visualization
-  - `distribution_histogram_*.html` — Parameter distributions
-
-## Development Workflow
-
-### 1. Data Exploration Phase (Exploratory Analysis)
-**Objective**: Understand data structure, distributions, and identify quality issues early
-- **Data Profiling**: Examine data shape, types, ranges, summary statistics
-- **Missing Data Analysis**: Identify missing value patterns, spatial/temporal gaps
-- **Statistical Testing**: Distribution tests (normality, skewness), trend analysis
-- **Data Quality Issues**: Detect anomalies, outliers, detection limits, method inconsistencies
-- **Visualization**: Create heatmaps of missing data, distribution plots, correlation analysis
-- **Output**: EDA report documenting baseline data quality issues discovered
-
-**Key Activities**:
-- Load raw dataset and examine structure
-- Profile completeness (nulls, missing values per variable/station)
-- Analyze parameter distributions and ranges
-- Identify stations with minimal/problematic sampling
-- Detect temporal gaps and sampling consistency
-- Flag obvious validity issues (e.g., pH > 14, negative concentrations)
-- Document findings to inform downstream quality assessment
-
-### 2. Data Cleaning & Validation Phase
-- Implement completeness checks (missing fields, null values)
-- Implement validity checks (domain constraints per parameter)
-- Handle censored values and detection limits
-- Standardize units and variable naming
-- Flag QA/QC issues with audit trail
-
-### 3. Quality Assessment Phase
-- Build 10-dimension quality scoring framework
-- Implement composite scoring algorithm
-- Calculate per-station quality metrics
-- Rank stations by concern priority
-- Generate quality assessment reports
-
-### 4. Visualization Phase
-- Create time series plotting with guideline overlays
-- Build interactive parameter/date/region filters
-- Develop spatial map with color-coded quality markers
-- Create summary statistics and trend visualizations
-- Link visualizations to underlying quality assessments
-
-### 5. Dashboard Integration Phase
-- Structure Streamlit multi-page application
-- Add interactive filtering and drill-down capabilities
-- Optimize performance for large datasets
-- Add user guidance and documentation tabs
-
-## Key Deliverables
-
-### 1. Interactive Dashboard
-- **Requirements**: Functional Streamlit application
-- **Features**: All 3 core components + optional enhancements
-- **Accessibility**: Clear UI, intuitive navigation, help documentation
-- **Files needed**: Source code + requirements.txt + instructions
-
-### 2. Written Summary (1-page maximum)
-- **Contents**: Key findings from data quality assessment
-- **Analysis**: Interpretation of dashboard insights
-- **Recommendations**: Actionable improvements for surface water data quality
-- **AI disclosure**: Reference any AI tools used in development
-
-## Data Quality Dimensions Explained
-
-### Completeness
-- Percentage of missing `MeasurementValue`, `SampleDateTime`, `Station`, coordinates, `VariableName`
-- Percentage of unusable rows (missing critical fields)
-- **Target**: < 5% missing for reliable stations
-
-### Validity
-- Chemical plausibility checks: pH 0-14, temperature -5 to 40°C, concentrations ≥ 0
-- Flag absurd spikes (e.g., TDS > 500,000 mg/L)
-- Domain-specific constraints per parameter
-
-### Detection Limits
-- Proportion of values below detection limit per parameter/station
-- Method detection limit consistency over time
-- Censoring pattern impact on analysis
-
-### Consistency
-- **Temporal**: Unrealistic jumps in time series (z-score flagging)
-- **Units**: Same variable reported in different units
-- **Methods**: Parameter method code consistency and stability
-
-### Outlier & Anomaly Detection
-- Z-score based (values > 3σ from mean)
-- IQR-based (values outside 1.5 × IQR)
-- Rolling window spike detection
-- Seasonal decomposition (optional advanced)
-
-### QA/QC & Lab Reliability
-- Analysis of built-in flags: `QCSampleFlag`, `MeasurementFlag`, `MeasurementQualifier`
-- Lab and method code performance comparison
-- Flagged result patterns and trends
-
-### Spatial Consistency
-- Duplicate station coordinates
-- Geographic basin mismatches
-- Isolated outlier station clusters
-
-### Sampling Coverage
-- Samples per year per station
-- Sampling gaps and frequency
-- Stations with minimal data (low reliability)
-
-### Parameter Coverage
-- Parameter diversity per station
-- Missing key analytes (nutrients, major ions, etc.)
-- Station suitability for comprehensive assessment
-
-## Technologies Used
-
-- **Data Processing**: `pandas`, `numpy`, `scipy`
-- **Visualization**: `streamlit`, `plotly`, `matplotlib`, `seaborn`, `altair`
-- **Time Series**: `statsmodels`, `pmdarima`
-- **Database**: `pyodbc`, `oracledb` (for Oracle DB connectivity)
-- **Environment**: `python-dotenv`
-
-## Testing
-
+### Run EDA
 ```bash
-# Run unit tests for data quality scoring
-pytest tests/test_quality_scorer.py
-
-# Run validation tests
-pytest tests/test_validation.py
-
-# Run data loader tests
-pytest tests/test_data_loader.py
+# From project root
+python exploratory/data_profiling.py
+python exploratory/missing_data_analysis.py
+# ... etc
 ```
 
+## Data Quality Highlights
 
-## Notes
+### What's Good ✅
+- 98.18% compliance with quality rules
+- Consistent station coordinates & names
+- Standardized field naming conventions
+- 4-year continuous monitoring (173 of 174 stations)
+- Comprehensive parameter coverage
 
-- Data source: 3-year (2020-2023) water quality dataset from Alberta monitoring stations
-- Data quality is composite: completeness + validity + consistency + reliability + usability
-- Focus on decision-making value: recommendations should be actionable
-- Consider AI tool usage and document accordingly
+### Known Issues ⚠️
+- **S1 (Unit Inconsistency)**: 4 stations with dual units (fixable via conversion per `unit_definitions.yaml`)
+- **M2 (Out-of-Range Values)**: 596 records with physiologically impossible values (recommend exclusion for trend analysis)
+- **Recommended Action**: Document quality choices in methodology; use `data_quality_analysis.md` for filtering guidance
 
-## Environment Configuration
+## Next Steps (Phase 2+)
 
-Create a `.env` file for database credentials and configuration:
-```
-DATABASE_HOST=your_oracle_host
-DATABASE_PORT=1521
-DATABASE_SID=your_sid
-DATABASE_USER=your_username
-DATABASE_PASSWORD=your_password
-```
+- [ ] Pages 2-5 dashboard sections (Data Quality, Unit Analysis, Geospatial, Advanced)
+- [ ] Automated quality alerting and monitoring
+- [ ] Real-time or scheduled data updates
+- [ ] Statistical anomaly detection (Isolation Forest, LOF)
+- [ ] Parameter-specific quality scorecards
+- [ ] Lab/method performance comparison
+- [ ] Export to PNG/PDF/CSV capabilities
 
-## Contributing
+## Support & References
 
-When adding features:
-1. Follow PEP 8 style guide
-2. Add comprehensive docstrings
-3. Update relevant tests
-4. Document changes in commit messages
+- **Dashboard Help**: [streamlit_app/README.md](streamlit_app/README.md)
+- **Quick Start**: [streamlit_app/QUICKSTART.md](streamlit_app/QUICKSTART.md)
+- **Data Guide**: [README_PHASE_2.md](README_PHASE_2.md) (full reference tables)
+- **Quality Details**: [data_quality_analysis.md](data_quality_analysis.md)
+- **Data Origin**: [data_documentation.md](data_documentation.md)
 
-## License
+---
 
-[Add license information here]
+**Last Updated**: May 18, 2026 | **Version**: 0.2 MVP | **Data**: 247,121 records, 174 stations, 2020-2023
