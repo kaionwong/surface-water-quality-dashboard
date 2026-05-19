@@ -789,6 +789,127 @@ elif _active_page == _nav_options[1]:
 
     st.markdown("---")
 
+    # ── D. GIS Maps (always visible, both modes) ──────────────────────────
+    with st.container():
+        st.markdown(
+            '<h2 style="margin-bottom:0;color:#1d3557;font-weight:700;">'
+            "Geospatial distribution of data quality issues"
+            "</h2>",
+            unsafe_allow_html=True,
+        )
+
+        # ── Inline variable + station filters ────────────────────────────
+        _gis_var_key_map = build_variable_key_mapping(df_t2)
+        _gis_all_vmvcodes = sorted(df_t2["VmvCode"].unique().tolist())
+        _gis_label_to_code = {_gis_var_key_map.get(c, str(c)): c for c in _gis_all_vmvcodes}
+        _gis_var_labels = sorted(_gis_label_to_code.keys())
+
+        _gis_stn_ref = (
+            df_t2[["StationNumber", "Station"]]
+            .drop_duplicates("StationNumber")
+            .sort_values("StationNumber")
+        )
+        _gis_stn_options = ["All stations"] + [
+            f"{r['StationNumber']} ({r['Station']})" for _, r in _gis_stn_ref.iterrows()
+        ]
+        _gis_stn_label_to_num = {
+            f"{r['StationNumber']} ({r['Station']})": r["StationNumber"]
+            for _, r in _gis_stn_ref.iterrows()
+        }
+
+        gis_filter_col1, gis_filter_col2, gis_filter_col3 = st.columns([2, 2, 1])
+        with gis_filter_col1:
+            _gis_sel_var = st.selectbox(
+                "Variable",
+                options=["All variables"] + _gis_var_labels,
+                index=0,
+                key="t2_gis_variable",
+            )
+        with gis_filter_col2:
+            _gis_sel_stn = st.selectbox(
+                "Station",
+                options=_gis_stn_options,
+                index=0,
+                key="t2_gis_station",
+            )
+        with gis_filter_col3:
+            t2_map_type = st.radio(
+                "Map type",
+                ["Station points", "Heat map"],
+                horizontal=False,
+                key="t2_map_type",
+            )
+
+        # Resolve filter values
+        _gis_variable_filter = (
+            None if _gis_sel_var == "All variables"
+            else [_gis_label_to_code[_gis_sel_var]]
+        )
+        _gis_station_filter = (
+            None if _gis_sel_stn == "All stations"
+            else [_gis_stn_label_to_num[_gis_sel_stn]]
+        )
+
+        _gis_var_note = _gis_sel_var
+        _gis_stn_note = _gis_sel_stn
+        st.markdown(
+            f"Station-level flag rate — **{scope_label}** flags · "
+            f"**{_gis_var_note}** · **{_gis_stn_note}**"
+        )
+
+        # Apply station filter on top of date-filtered data
+        _df_gis = (
+            df_t2 if _gis_station_filter is None
+            else df_t2[df_t2["StationNumber"].isin(_gis_station_filter)].copy()
+        )
+
+        map_station_data = get_station_quality_map_data(
+            _df_gis,
+            include_potentially_unreliable=t2_include_potential,
+            variable_filter=_gis_variable_filter,
+        )
+
+        t2_map_result = quality_station_map(
+            map_station_data,
+            map_type="heatmap" if t2_map_type == "Heat map" else "points",
+        )
+
+        if t2_map_result is None:
+            st.info("No station data available for the current filter.")
+        else:
+            t2_folium_map, t2_legend_html = t2_map_result
+            stf.folium_static(t2_folium_map, width=1400, height=560)
+            _assumption_note = (
+                "<b>Assumption:</b> Data quality flags are derived from the <code>MeasurementQualifier</code> "
+                "field. Records with no entry in this field, or with qualifier codes not associated with "
+                "quality issues, are assumed to be clean (no data quality concerns flagged)."
+            )
+            if t2_map_type == "Heat map":
+                method_html_t2 = (
+                    "<b>Methodology (Heat map):</b> Each station contributes a point weighted "
+                    "by its % flagged records. A Gaussian kernel heat map visualises spatial "
+                    "clusters of data quality issues. Higher intensity = higher proportion of "
+                    "flagged records in that area.<br><br>"
+                    + _assumption_note
+                )
+            else:
+                method_html_t2 = (
+                    "<b>Methodology (Station points):</b> Each marker represents one monitoring "
+                    "station, coloured by its proportion of flagged records. Hover over a marker "
+                    "for exact counts. Colour scale: 0% (green, no quality issues), "
+                    "&gt;0%–5% (amber), 5–10% (orange), &gt;10% (red).<br><br>"
+                    + _assumption_note
+                )
+            st.markdown(
+                f"<div style='display:flex;gap:16px;align-items:flex-start;'>"
+                f"<div style='flex-shrink:0;'>{t2_legend_html}</div>"
+                f"<div style='flex:1;font-size:14px;padding-top:8px;'>{method_html_t2}</div>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+
+    st.markdown("---")
+
     # ── B. By Variable mode ───────────────────────────────────────────────
     if t2_focus == "By variable":
 
@@ -973,126 +1094,6 @@ elif _active_page == _nav_options[1]:
                 st.plotly_chart(fig_matrix_stn, use_container_width=True)
                 with st.expander("View as table (download-ready)"):
                     st.dataframe(matrix_stn, use_container_width=True)
-
-    # ── D. GIS Maps (always visible, both modes) ──────────────────────────
-    st.markdown("---")
-    with st.container():
-        st.markdown(
-            '<h2 style="margin-bottom:0;color:#1d3557;font-weight:700;">'
-            "Geospatial distribution of data quality issues"
-            "</h2>",
-            unsafe_allow_html=True,
-        )
-
-        # ── Inline variable + station filters ────────────────────────────
-        _gis_var_key_map = build_variable_key_mapping(df_t2)
-        _gis_all_vmvcodes = sorted(df_t2["VmvCode"].unique().tolist())
-        _gis_label_to_code = {_gis_var_key_map.get(c, str(c)): c for c in _gis_all_vmvcodes}
-        _gis_var_labels = sorted(_gis_label_to_code.keys())
-
-        _gis_stn_ref = (
-            df_t2[["StationNumber", "Station"]]
-            .drop_duplicates("StationNumber")
-            .sort_values("StationNumber")
-        )
-        _gis_stn_options = ["All stations"] + [
-            f"{r['StationNumber']} ({r['Station']})" for _, r in _gis_stn_ref.iterrows()
-        ]
-        _gis_stn_label_to_num = {
-            f"{r['StationNumber']} ({r['Station']})": r["StationNumber"]
-            for _, r in _gis_stn_ref.iterrows()
-        }
-
-        gis_filter_col1, gis_filter_col2, gis_filter_col3 = st.columns([2, 2, 1])
-        with gis_filter_col1:
-            _gis_sel_var = st.selectbox(
-                "Variable",
-                options=["All variables"] + _gis_var_labels,
-                index=0,
-                key="t2_gis_variable",
-            )
-        with gis_filter_col2:
-            _gis_sel_stn = st.selectbox(
-                "Station",
-                options=_gis_stn_options,
-                index=0,
-                key="t2_gis_station",
-            )
-        with gis_filter_col3:
-            t2_map_type = st.radio(
-                "Map type",
-                ["Station points", "Heat map"],
-                horizontal=False,
-                key="t2_map_type",
-            )
-
-        # Resolve filter values
-        _gis_variable_filter = (
-            None if _gis_sel_var == "All variables"
-            else [_gis_label_to_code[_gis_sel_var]]
-        )
-        _gis_station_filter = (
-            None if _gis_sel_stn == "All stations"
-            else [_gis_stn_label_to_num[_gis_sel_stn]]
-        )
-
-        _gis_var_note = _gis_sel_var
-        _gis_stn_note = _gis_sel_stn
-        st.markdown(
-            f"Station-level flag rate — **{scope_label}** flags · "
-            f"**{_gis_var_note}** · **{_gis_stn_note}**"
-        )
-
-        # Apply station filter on top of date-filtered data
-        _df_gis = (
-            df_t2 if _gis_station_filter is None
-            else df_t2[df_t2["StationNumber"].isin(_gis_station_filter)].copy()
-        )
-
-        map_station_data = get_station_quality_map_data(
-            _df_gis,
-            include_potentially_unreliable=t2_include_potential,
-            variable_filter=_gis_variable_filter,
-        )
-
-        t2_map_result = quality_station_map(
-            map_station_data,
-            map_type="heatmap" if t2_map_type == "Heat map" else "points",
-        )
-
-        if t2_map_result is None:
-            st.info("No station data available for the current filter.")
-        else:
-            t2_folium_map, t2_legend_html = t2_map_result
-            stf.folium_static(t2_folium_map, width=1400, height=560)
-            _assumption_note = (
-                "<b>Assumption:</b> Data quality flags are derived from the <code>MeasurementQualifier</code> "
-                "field. Records with no entry in this field, or with qualifier codes not associated with "
-                "quality issues, are assumed to be clean (no data quality concerns flagged)."
-            )
-            if t2_map_type == "Heat map":
-                method_html_t2 = (
-                    "<b>Methodology (Heat map):</b> Each station contributes a point weighted "
-                    "by its % flagged records. A Gaussian kernel heat map visualises spatial "
-                    "clusters of data quality issues. Higher intensity = higher proportion of "
-                    "flagged records in that area.<br><br>"
-                    + _assumption_note
-                )
-            else:
-                method_html_t2 = (
-                    "<b>Methodology (Station points):</b> Each marker represents one monitoring "
-                    "station, coloured by its proportion of flagged records. Hover over a marker "
-                    "for exact counts. Colour scale: 0% (green, no quality issues), "
-                    "&gt;0%–5% (amber), 5–10% (orange), &gt;10% (red).<br><br>"
-                    + _assumption_note
-                )
-            st.markdown(
-                f"<div style='display:flex;gap:16px;align-items:flex-start;'>"
-                f"<div style='flex-shrink:0;'>{t2_legend_html}</div>"
-                f"<div style='flex:1;font-size:14px;padding-top:8px;'>{method_html_t2}</div>"
-                f"</div>",
-                unsafe_allow_html=True,
-            )
 
 st.markdown("---")
 st.caption("Dashboard status: Active | Updated: 2026-05-18")

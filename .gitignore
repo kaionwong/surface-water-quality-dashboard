@@ -81,3 +81,6 @@ config.local.json
 # Temporary directory
 /temp
 /temp_repo
+
+# Dev directory
+/llm

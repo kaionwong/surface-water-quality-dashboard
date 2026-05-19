@@ -5,7 +5,27 @@ Handles loading and caching CSV files with proper datetime parsing.
 
 import streamlit as st
 import pandas as pd
-import os
+from pathlib import Path
+
+
+_THIS_DIR = Path(__file__).resolve().parent
+_STREAMLIT_APP_DIR = _THIS_DIR.parent
+_REPO_ROOT = _STREAMLIT_APP_DIR.parent
+
+
+def _resolve_existing_path(relative_candidates):
+    """Return the first existing path from repo-root-relative candidates."""
+    checked = []
+    for rel_path in relative_candidates:
+        candidate = _REPO_ROOT / rel_path
+        checked.append(str(candidate))
+        if candidate.exists():
+            return candidate
+    raise FileNotFoundError(
+        "Could not find expected dataset file. Checked paths:\n"
+        + "\n".join(checked)
+        + "\n\nIf deploying to Streamlit Cloud, ensure the CSV is committed to the repo."
+    )
 
 
 @st.cache_data
@@ -14,7 +34,10 @@ def load_version_a():
     Load Version A (Strict) - excludes SUS and SUS-combined codes.
     246,052 records with highest data quality.
     """
-    path = '../output/dataset_version_a_strict.csv'
+    path = _resolve_existing_path([
+        "output/dataset_version_a_strict.csv",
+        "streamlit_app/output/dataset_version_a_strict.csv",
+    ])
     df = pd.read_csv(path)
     df['SampleDateTime'] = pd.to_datetime(df['SampleDateTime'])
     return df
@@ -26,7 +49,10 @@ def load_version_b():
     Load Version B (Balanced) - excludes SUS-combined codes, includes other acceptable flags.
     246,052 records with balanced quality filtering.
     """
-    path = '../output/dataset_version_b_balanced.csv'
+    path = _resolve_existing_path([
+        "output/dataset_version_b_balanced.csv",
+        "streamlit_app/output/dataset_version_b_balanced.csv",
+    ])
     df = pd.read_csv(path)
     df['SampleDateTime'] = pd.to_datetime(df['SampleDateTime'])
     return df
@@ -38,7 +64,11 @@ def load_version_c():
     Load Version C (Full) - all records with quality indicators.
     247,121 records suitable for exploratory analysis.
     """
-    path = '../output/dataset_version_c_full.csv'
+    path = _resolve_existing_path([
+        "output/dataset_version_c_full.csv",
+        "streamlit_app/output/dataset_version_c_full.csv",
+        "data/raw/alberta_surface_water_quality_data.csv",
+    ])
     df = pd.read_csv(path)
     df['SampleDateTime'] = pd.to_datetime(df['SampleDateTime'])
     return df
