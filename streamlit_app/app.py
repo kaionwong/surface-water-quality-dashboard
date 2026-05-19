@@ -735,35 +735,35 @@ elif _active_page == _nav_options[1]:
         if t2_include_potential
         else "unreliable"
     )
+    scope_title = (
+        "unreliable and potentially unreliable records"
+        if t2_include_potential
+        else "unreliable records"
+    )
 
     # ── A. KPI Summary Row ────────────────────────────────────────────────
     st.markdown(
         '<h4 style="margin-bottom:4px;color:#1d3557;font-size:16px;">'
-        "Dataset quality overview — all records"
+        f"Dataset quality overview — {scope_title}"
         "</h4>",
         unsafe_allow_html=True,
     )
+    st.caption(
+        "Scope is controlled by 'Flag type to analyze' in the sidebar. "
+        "Percentages remain relative to all records in the selected date range."
+    )
 
-    kpi_cols = st.columns(5)
     kpi_data = [
         (
+            "Unreliable and potentially unreliable records",
+            f"{broad_count_t2:,}",
+            f"{broad_count_t2 / total_records_t2 * 100:.2f}% of all records",
+        )
+        if t2_include_potential
+        else (
             "Unreliable records",
             f"{unreliable_count_t2:,}",
             f"{unreliable_count_t2 / total_records_t2 * 100:.2f}% of all records",
-        ),
-        (
-            "Potentially unreliable",
-            f"{potentially_count_t2:,}",
-            f"{potentially_count_t2 / total_records_t2 * 100:.2f}% of all records",
-        ),
-        (
-            "Total flagged (selected scope)",
-            (
-                f"{broad_count_t2:,}"
-                if t2_include_potential
-                else f"{unreliable_count_t2:,}"
-            ),
-            f"{(broad_count_t2 if t2_include_potential else unreliable_count_t2) / total_records_t2 * 100:.2f}% of all records",
         ),
         (
             "Stations with flags",
@@ -776,6 +776,7 @@ elif _active_page == _nav_options[1]:
             f"of {t2_var_stats['VmvCode'].nunique()} total",
         ),
     ]
+    kpi_cols = st.columns(len(kpi_data))
     for col, (label, value, context) in zip(kpi_cols, kpi_data):
         with col:
             st.markdown(
